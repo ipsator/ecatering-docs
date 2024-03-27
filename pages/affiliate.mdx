@@ -1,0 +1,1553 @@
+import { Callout } from 'nextra/components'
+
+# Affiliate Integrations
+
+We have following integration types for Affiliate
+
+- [Android SDK Integration](/affiliate#android-sdk-integration)
+- [Webview Integration (for B2C Partners)](/affiliate#webview-integration-for-b2c-partners)
+- [API based Integration (for B2B Partners)](/affiliate#api-based-integration-for-b2b-partners)
+
+## Android SDK Integration
+
+Improved IRCTC eCatering integration with Food on Track Android SDK.
+
+### Installation
+
+#### Add our Maven repository
+
+In the project-level `build.gradle`:
+
+```
+allprojects {
+    repositories {
+        ...
+        maven { url "https://maven.ipsator.com" }
+    }
+}
+```
+
+#### Add SDK dependency
+
+In the app module's `build.gradle`:
+
+```
+implementation 'com.irctc:fot-sdk:1.0.1'    // Or use com.irctc:fot-sdk-staging for testing
+```
+
+### Configuration
+
+#### Pass on any unhandled FCM messages to the SDK
+
+If your app has it's own custom `FirebaseMessagingService`, pass any unhandled RemoteMessage received by this custom service to the SDK:
+
+```
+class YourCustomFcmService : FirebaseMessagingService() {
+
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        // Consume the remoteMessage if it's from your app's FCM instance (check if it has data recongnised by your app)
+
+        ...
+
+        // If the received reremoteMessage has data not known to your app, it must be for our SDK, so pass it on (important)
+        FotSdk.handleRemoteMessage(this, remoteMessage)
+    }
+
+}
+```
+
+<Callout emoji="ℹ️">
+  This step is **not** required if you have not defined a custom
+  FirebaseMessagingService.
+</Callout>
+
+#### Set default resources for FCM
+
+If your app **does not** use FCM for notifications, add these meta-data tags to your app's `AndroidManifest.xml`:
+
+```
+<application>
+    <activity />
+    ...
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="fot_sdk_102_channel_general" />
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_icon"
+        android:resource="@drawable/fot_sdk_ic_notification_small" />
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_color"
+        android:resource="@color/fot_sdk_primaryColor" />
+    ...
+</application>
+```
+
+<Callout emoji="ℹ️">
+  You should skip this step if your app already uses FCM for notifications.
+</Callout>
+
+### Usage
+
+<Callout emoji="⚠️">
+  Your production UTM source is unique to your integration & **would be provided
+  by the Ipsator team** once the integration is finalised at your end. This is
+  used to uniquely identify orders being placed via your integration.
+</Callout>
+
+#### Show eCatering home page
+
+```
+FotSdk.show(
+    context,                        // Required; Android Context
+    FotDataBuilder.with()
+        .userHash("e0ec043b3f9e198ec09041687e4d4e8d")   // Optional; send user hash for identificaiton, this should be user id or hash which is stored in your platform
+        .fullName("User Name")      // Required; send the user's full name here
+        .mobile("9999999999")       // Required; send the user's mobile number here
+        .email("user@example.com")  // Required; send the user's email here
+        .source("TEST_AFFILIATE")   // Required; send the provided UTM source here
+        .campaign("home_order_food_button")	// Optional
+        .showAppBar(true)           // Optional; send true to show an app bar/toolbar on top when eCatering is shown in a webview
+        .build()
+)
+```
+
+#### Show eCatering with PNR data
+
+```
+FotSdk.show(
+    context,                        // Required; Android Context
+    FotDataBuilder.with()
+        .userHash("e0ec043b3f9e198ec09041687e4d4e8d")   // Optional; send user hash for identificaiton, this should be user id or hash which is stored in your platform
+        .fullName("User Name")      // Required; send the user's full name here
+        .mobile("9999999999")       // Required; send the user's mobile number here
+        .email("user@example.com")  // Required; send the user's email here
+        .source("TEST_AFFILIATE")   // Required; send the provided UTM source here
+        .campaign("ticket_order_food_button")	// Optional
+        .pnr("2822156381")	        // Send the customer's PNR here
+        .showAppBar(true)           // Optional; send true to show an app bar/toolbar on top when eCatering is shown in a webview
+        .build()
+)
+```
+
+## Webview Integration (for B2C Partners)
+
+### Webview URLs
+
+The following params are expected:
+
+- **utm_source** (mandatory)  
+  This is used to uniquely identify orders being placed via your redirection.  
+  Example: `utm_source=TEST_AFFILIATE`
+
+<Callout emoji="⚠️">
+  Your production utm_source is unique to your integration & **would be provided
+  by the Ipsator team** once the integration is finalised at your end.
+</Callout>
+
+- **user** (optional)  
+  Base64 (name:mobile:email) of name, mobile and email ID of logged-in user at your end.  
+  It is an optional field used to pre-fill those details on the eCatering website. It also helps to automatically login the user to access pages like order list & order details.  
+  Example: `user=VXNlciBOYW1lOjk5OTk5OTk5OTk6dXNlckBleGFtcGxlLmNvbQ==`  
+  The user value in above example is Base64 value of "User Name:9999999999:user@example.com".
+- **utm_medium** (optional)  
+  An optional field to track the medium of orders. The supported values are:
+  - `ANDROID_APP`
+  - `IOS_APP`
+  - `MOBILE_WEB`
+  - `DESKTOP_WEB`
+  - `CALL_CENTER`
+
+The following URLs can be opened by passing the above params:
+
+<Callout emoji="💡">
+  **Base URLs for IRCTC eCatering** **Production:**
+  https://www.ecatering.irctc.co.in **Staging:**
+  https://stage-ecatering.ipsator.com You can use the staging URL for creating
+  test orders.
+</Callout>
+
+- eCatering home page: https://www.ecatering.irctc.co.in
+
+Examples:
+
+```
+https://www.ecatering.irctc.co.in?utm_source=TEST_AFFILIATE
+
+https://www.ecatering.irctc.co.in?utm_source=TEST_AFFILIATE&user=VXNlciBOYW1lOjk5OTk5OTk5OTk6dXNlckBleGFtcGxlLmNvbQ==
+```
+
+- station/outlet page with prefilled pnr: https://www.ecatering.irctc.co.in/&lt;pnr>/outlets
+
+Examples:
+
+```
+https://www.ecatering.irctc.co.in/4623529313/outlets?utm_source=TEST_AFFILIATE
+
+https://www.ecatering.irctc.co.in/4623529313/outlets?utm_source=TEST_AFFILIATE&user=VXNlciBOYW1lOjk5OTk5OTk5OTk6dXNlckBleGFtcGxlLmNvbQ==
+```
+
+- User's order list page: https://www.ecatering.irctc.co.in/orders
+
+Example:
+
+```
+https://www.ecatering.irctc.co.in/orders?utm_source=TEST_AFFILIATE&utm_medium=android_app&user=VXNlciBOYW1lOjk5OTk5OTk5OTk6dXNlckBleGFtcGxlLmNvbQ==
+```
+
+- Order details page: https://www.ecatering.irctc.co.in/orders/&lt;irctc_order_id>
+
+Example:
+
+```
+https://www.ecatering.irctc.co.in/orders/42343707?utm_source=TEST_AFFILIATE&user=VXNlciBOYW1lOjk5OTk5OTk5OTk6dXNlckBleGFtcGxlLmNvbQ==
+```
+
+### Affiliate APIs
+
+#### Send Notifications API
+
+In order to enable communication to the users via Push Notifications, affiliate partners must expose the following API to enable IRCTC to reach out to customers and send updates to them.
+
+**GET https://&lt;affiliate-base-url>/api/sendNotification**
+
+**Request**
+
+```
+[
+  {
+    "user": "9876543210",     // user's phone no
+    "notification": {
+      "title": "Running late",
+      "message": "Your train is running late, you order at NDLS will be delivered at 6:15 PM.",
+      "imageUrl": "https://<image-service-base-url>/train-running-late.jpg",
+      "landingUrl": "https://ecatering.irctc.co.in/orders/1234567"
+    }
+  }
+]
+```
+
+**Response**
+
+```
+{
+  "status": "success",
+  "message": "Notifications scheduled successfully."
+}
+```
+
+#### Event capture Bridge (Optional)
+
+To enable Affiliates nudge customers who have abandoned cart or not created orders, we will publish events to Affiliate's app via javascript bridge if available. IRCTC will call the following function which Affiliates have to expose via javascript bridge.
+
+```typescript
+function sendEventToAffiliate(eventName: EventName, options?: any) {
+  try {
+    ecateringJsBridge?.trackEvent?.(eventName, options)
+  } catch (err) {}
+}
+```
+
+IRCTC has following events which can be sent
+
+```typescript
+enum EventName {
+  SCREEN_VIEW = 'screen_view',
+  SEARCH = 'search',
+  ADD_TO_CART = 'add_to_cart',
+  REMOVE_FROM_CART = 'remove_from_cart',
+  SIGN_UP = 'sign_up',
+  COUPON_APPLIED = 'coupon_applied',
+  COUPON_FAILED = 'coupon_failed',
+  BEGIN_CHECKOUT = 'begin_checkout',
+  VIEW_ITEM_LIST = 'view_item_list',
+  GENERATE_LEAD = 'generate_lead',
+  CALL_SUPPORT = 'call_support',
+  SELECT_CONTENT = 'select_content',
+  SEND_INVOICE = 'send_invoice',
+  FEEDBACK_YES = 'feedback_yes',
+  FEEDBACK_NO = 'feedback_no',
+  FEEDBACK_GOOD = 'feedback_good',
+  FEEDBACK_BAD = 'feedback_bad',
+  CALL_VENDOR = 'call_vendor',
+  REFUND = 'refund',
+  ADD_PAYMENT_INFO = 'add_payment_info',
+  PAYMENT_SUCCESS = 'payment_success',
+  PAYMENT_FAILURE = 'payment_failure',
+  PAYMENT_PENDING = 'payment_pending',
+  PURCHASE = 'purchase',
+  ITEM_PURCHASE = 'item_purchase',
+  CALL_DELIVERY_AGENT = 'call_delivery_agent',
+}
+```
+
+Event options can be followings
+
+```typescript
+enum EventProperty {
+  APP_NAME = 'app_name',
+  CONTENT_TYPE = 'content_type',
+  ITEM_CATEGORY = 'item_category',
+  ITEM_ID = 'item_id',
+  ITEM_NAME = 'item_name',
+  GROUP_ID = 'group_id',
+  LOCATION = 'location',
+  CHECKOUT_OPTION = 'checkout_option',
+  CURRENCY = 'currency',
+  VALUE = 'value',
+  ORDER_ITEMS = 'order_items',
+  ITEAM_NAME = 'item_name',
+  SELLING_PRICE = 'selling_Price',
+}
+```
+
+## API based Integration (for B2B Partners)
+
+API based integration can be used if affiliate wish to have its own assets and use IRCTC's API to interact and pass the orders for delivery.
+
+### IRCTC API
+
+The following APIs are available from IRCTC end for B2C Partners to integrate.
+
+- IRCTC server will provide an API auth token to make API calls to it.
+- Every request should have the auth token in the request header like this:
+  Authorization: &lt;auth_token>.
+
+<Callout emoji="💡">
+  **Base URLs for IRCTC eCatering APIs** **Staging:**
+  https://stage-ecatering.ipsator.com **Production:**
+  https://www.ecatering.irctc.co.in
+</Callout>
+
+#### Getting journey details against pnr
+
+**GET &lt;irctc-base-url>/api/v1/pnr/station/details?pnr=&lt;pnr>**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/pnr/station/details?pnr=8730136580
+
+**Response :**
+
+```
+{
+	"status": "success",
+	"message": "",
+	"result": {
+		"stations": [{
+			"code": "SUR",
+			"name": "Solapur Jn",
+			"isCateringAvailable": true,
+			"dayCount": "1",
+			"arrival": "21:30",
+			"departure": "21:35",
+			"halt": "05:00",
+			"arrDate": "2021-06-02",
+			"depDate": "2021-06-02",
+			"delayArrival": null,
+			"schArrivalTime": "21:30",
+			"schArrivalDate": "2021-06-02"
+		}, {
+			"code": "BZA",
+			"name": "Vijayawada Jn",
+			"isCateringAvailable": true,
+			"dayCount": "2",
+			"arrival": "09:30",
+			"departure": "09:40",
+			"halt": "10:00",
+			"arrDate": "2021-06-03",
+			"depDate": "2021-06-03",
+			"delayArrival": null,
+			"schArrivalTime": "09:30",
+			"schArrivalDate": "2021-06-03"
+		}, {
+			"code": "RJY",
+			"name": "Rajahmundry",
+			"isCateringAvailable": true,
+			"dayCount": "2",
+			"arrival": "12:03",
+			"departure": "12:05",
+			"halt": "02:00",
+			"arrDate": "2021-06-03",
+			"depDate": "2021-06-03",
+			"delayArrival": null,
+			"schArrivalTime": "12:03",
+			"schArrivalDate": "2021-06-03"
+		}],
+		"trainInfo": {
+			"trainNo": "01019",
+			"name": "CSMT BBS SPL",
+			"boarding": "SUR",
+			"destination": "BBS",
+			"dt": "02-06-2021",
+			"boardingDayCount": 1,
+			"fromStationName": null,
+			"toStationName": null,
+			"origin": null
+		},
+		"seatInfo": {
+			"coach": "S4",
+			"berth": "11",
+			"noOfSeats": 1
+		}
+	}
+}
+```
+
+#### Getting list of outlets by stationCode
+
+**GET &lt;irctc-base-url>/api/v1/station/outlets?stationCode=&lt;station_code>&time=&lt;arrival_time_of_train>&date=&lt;arrival_date_of_train>**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/station/outlets?stationCode=NGP&time=11:30&date=2021-04-10
+
+**Response :**
+
+```
+{
+  "status": "success",
+  "message": "",
+  "result": [
+    {
+      "outlet": {
+        "id": 237123413123493,
+        "vendor": {
+          "id": 6440619,
+          "name": "FAASOS",
+          "vendorType": "AGGREGATOR",
+          "logoImageUrl": null
+        },
+        "name": "Lunchbox",
+        "minOrderValue": 99,
+        "bookingCutOffTime": 75,
+        "logoImageUrl": "https://assets.faasos.io/thirdparty/Lunch.png",
+        "prepaid": false,
+        "cuisines": [],
+        "ratingCount": 92,
+        "ratingValue": 3.5
+      },
+      "stationCode": "NGP"
+    },
+    {
+      "outlet": {
+        "id": 7785716,
+        "vendor": {
+          "id": 7784479,
+          "name": "Shivraj- The Thali Restaurant",
+          "vendorType": "VENDOR",
+          "logoImageUrl": "https://hydrogen-uploads.s3.ap-south-1.amazonaws.com/vendor/logoImageUrl/SHIVRAJ--B-2019-03-22-11-18-22.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20210318T110548Z&X-Amz-SignedHeaders=host&X-Amz-Expires=3600&X-Amz-Credential=AKIAILMFMNM7D5KWSLJQ%2F20210318%2Fap-south-1%2Fs3%2Faws4_request&X-Amz-Signature=6369b35ce36221023da0bb21c91f503660323252b9fd052dca635d12ad5c489f"
+        },
+        "name": "Shivraj- The Thali Restaurant",
+        "minOrderValue": 100,
+        "bookingCutOffTime": 60,
+        "logoImageUrl": null,
+        "prepaid": false,
+        "cuisines": [
+          "MAHARASHTRIAN",
+          "ANDHRA",
+          "NORTH_INDIAN",
+          "PUNJABI"
+        ],
+        "ratingCount": 431,
+        "ratingValue": 3.31
+      },
+      "stationCode": "NGP"
+    }
+  ]
+}
+
+```
+
+#### Get menu by outletId
+
+**GET &lt;irctc-base-url>/api/v1/vendor/&lt;vendor_id>/outlet/&lt;outlet_id>/menu/active?time=&lt;train_arrival_time>&stationCode=&lt;station_code>&date=&lt;delivery_date>**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/vendor/6997/outlet/7100/menu/active?time=14:15&stationCode=BZA&date=2019-11-21
+
+**Response**
+
+```
+{
+  "status": "success",
+  "message": "",
+  "result": {
+    "id": null,
+    "active": true,
+    "deliveryCharge": {
+      "charge": 0,
+      "tax": 0,
+      "totalCharge": 0
+    },
+    "menuItems": [
+      {
+        "id": 1,
+        "itemName": "Margherita",
+        "description": "Classic delight with 100% real mozzarella cheese",
+        "basePrice": 199,
+        "sellingPrice": 0,
+        "taxRate": 0,
+        "active": true,
+        "schedules": [
+          {
+            "id": null,
+            "name": null,
+            "startTime": "10:57",
+            "endTime": "23:00",
+            "orderTiming": null
+          }
+        ],
+        "isVegetarian": true,
+        "tags": null,
+        "foodType": "Bestsellers",
+        "cuisine": null,
+        "options": null,
+        "baseOption": null,
+        "createdAt": null,
+        "createdBy": null,
+        "updatedAt": null,
+        "updatedBy": null,
+        "customisations": [
+          {
+            "id": 1,
+            "name": "Crust",
+            "min": 1,
+            "max": 1,
+            "defaultVariant": 1,
+            "description": null,
+            "optionsName": "Base Size",
+            "optionsDescription": null,
+            "variants": [
+              {
+                "id": 1,
+                "defaultOption": 7,
+                "name": "New Hand Tossed",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 99
+                  },
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 199
+                  },
+                  {
+                    "id": 8,
+                    "name": "Large",
+                    "description": "Serves 4",
+                    "basePrice": 395
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "defaultOption": 7,
+                "name": "Wheat Thin Crust",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 249
+                  }
+                ]
+              },
+              {
+                "id": 115,
+                "defaultOption": 7,
+                "name": "Cheese Burst",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 174
+                  },
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 298
+                  }
+                ]
+              },
+              {
+                "id": 128,
+                "defaultOption": 7,
+                "name": "Fresh Pan Pizza",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 129
+                  },
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 239
+                  }
+                ]
+              },
+              {
+                "id": 391,
+                "defaultOption": 6,
+                "name": "Classic Hand Tossed",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 99
+                  }
+                ]
+              }
+            ],
+            "type": "CHOICE"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "itemName": "Farmhouse",
+        "description": "Delightful combination of onion, capsicum, tomato & grilled mushroom",
+        "basePrice": 395,
+        "sellingPrice": 0,
+        "taxRate": 0,
+        "active": true,
+        "schedules": [
+          {
+            "id": null,
+            "name": null,
+            "startTime": "10:57",
+            "endTime": "23:00",
+            "orderTiming": null
+          }
+        ],
+        "isVegetarian": true,
+        "tags": null,
+        "foodType": "Bestsellers",
+        "cuisine": null,
+        "options": null,
+        "baseOption": null,
+        "createdAt": null,
+        "createdBy": null,
+        "updatedAt": null,
+        "updatedBy": null,
+        "customisations": [
+          {
+            "id": 6,
+            "name": "Crust",
+            "min": 1,
+            "max": 1,
+            "defaultVariant": 1,
+            "description": null,
+            "optionsName": "Base Size",
+            "optionsDescription": null,
+            "variants": [
+              {
+                "id": 1,
+                "defaultOption": 7,
+                "name": "New Hand Tossed",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 215
+                  },
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 395
+                  },
+                  {
+                    "id": 8,
+                    "name": "Large",
+                    "description": "Serves 4",
+                    "basePrice": 595
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "defaultOption": 7,
+                "name": "Wheat Thin Crust",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 445
+                  }
+                ]
+              },
+              {
+                "id": 115,
+                "defaultOption": 7,
+                "name": "Cheese Burst",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 290
+                  },
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 494
+                  }
+                ]
+              },
+              {
+                "id": 128,
+                "defaultOption": 7,
+                "name": "Fresh Pan Pizza",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 245
+                  },
+                  {
+                    "id": 7,
+                    "name": "Medium",
+                    "description": "Serves 2",
+                    "basePrice": 435
+                  }
+                ]
+              },
+              {
+                "id": 391,
+                "defaultOption": 6,
+                "name": "Classic Hand Tossed",
+                "basePrice": 0,
+                "active": false,
+                "options": [
+                  {
+                    "id": 6,
+                    "name": "Regular",
+                    "description": "Serves 1",
+                    "basePrice": 215
+                  }
+                ]
+              }
+            ],
+            "type": "CHOICE"
+          }
+        ]
+      },
+      {
+        "id": 56,
+        "itemName": "Butterscotch Mousse Cake",
+        "description": "Sweet temptation! Butterscotch flavored mousse ",
+        "basePrice": 99,
+        "sellingPrice": 99,
+        "taxRate": 0,
+        "active": true,
+        "schedules": [
+          {
+            "id": null,
+            "name": null,
+            "startTime": "10:57",
+            "endTime": "23:00",
+            "orderTiming": null
+          }
+        ],
+        "isVegetarian": true,
+        "tags": null,
+        "foodType": "Dessert",
+        "cuisine": null,
+        "options": null,
+        "baseOption": null,
+        "createdAt": null,
+        "createdBy": null,
+        "updatedAt": null,
+        "updatedBy": null,
+        "customisations": null
+      }
+    ],
+    "createdAt": null,
+    "createdBy": null,
+    "updatedAt": null,
+    "updatedBy": null,
+    "outletId": 66382,
+    "vendorId": 1190,
+    "validateCart": true
+  }
+}
+```
+
+#### Validate Cart
+
+**POST &lt;irctc-base-url>/api/v1/order/cart/validate**
+
+> Example: https://stage-ecatering.ipsator.com/api/v1/order/cart/validate
+
+**Resquest :**
+
+```
+{
+	"cartId": "",
+*	"customer": {
+		"fullName": "deepak",
+		"email": "test@gmail.com",
+		"mobile": "9898767675"
+	},
+*	"outlet": {
+		"id": 66382,
+		"vendor": {
+			"id": 1190
+		}
+	},
+	"berth": "2",
+	"coach": "B15",
+	"stationCode": "BBS",
+*	"orderItems": [{
+*		"itemId": "1",
+*		"quantity": 1,
+		"customisations": [{
+			"id": 1,
+			"type": "CHOICE",
+			"variants": [{
+				"id": 1,
+				"option": 7
+			}]
+		}]
+	}],
+	"deliveryDate": "2020-04-01 12:00 IST",
+	"bookingDate": "2020-03-24 09:52 IST",
+*	"orderFrom": "desktop web",
+	"stationName": "BHUBANESWAR",
+	"trainName": "AGTL HUMSAFAR",
+	"trainNo": "12503",
+  "couponCode":"AAAAA",
+	"alternateMobileNumber": "",
+	"comment": ""
+}
+```
+
+**Response :**
+
+```
+{
+	"status": "success",
+	"message": "",
+	"result": {
+		"cart": {
+			"status": "success",
+			"cartId": 54962822180935,
+			"validItems": [{
+				"id": 1,
+				"name": null,
+				"description": null,
+				"quantity": 1,
+				"taxRate": 9.95,
+				"taxPercentage": 0.05,
+				"basePrice": 199,
+				"errors": [],
+				"customisations": [{
+					"id": 1,
+					"name": "crust",
+					"variants": [{
+						"id": 1,
+						"name": "New Hand Tossed",
+						"price": 199,
+						"option": 7,
+						"description": "Classic Domino's crust. Fresh, hand stretched",
+						"optionName": "Medium"
+					}],
+					"type": "CHOICE"
+				}],
+				"isVegetarian": false
+			}],
+			"invalidItems": [],
+			"deliveryCharge": 0,
+			"customerPayable": 209,
+			"totalTax": 9.95,
+			"discount": 0
+		},
+		"coupon": null
+	}
+}
+```
+
+#### Getting list of orders of a customer
+
+**GET &lt;irctc-base-url>/api/v1/order?mobile=&lt;mobile_number>&email=&lt;email_id>**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/order?mobile=8447005657&email=customer@example.com
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "total": 6,
+        "orders": [
+            {
+                "id": 293933,
+                "orderNo": 7191,
+                "orderItems": [
+                    {
+                        "itemId": 90957,
+                        "itemName": "Non Veg Delux Thali",
+                        "description": "Chicken Butter Masala(100g),mix Veg Curry(100g),butter Chapati(3 Pcs),jeera Rice(200g),sweet (1 Pc),salad,pickle,raita(50g)",
+                        "basePrice": 2.1E+2,
+                        "sellingPrice": 220.5,
+                        "taxRate": 10.5,
+                        "isVegetarian": false,
+                        "quantity": 3,
+                        "margin": 0.12,
+                        "status": null,
+                        "option": null,
+                        "toppings": null,
+                        "crust": null,
+                        "size": null,
+                        "foodType": null,
+                        "remarks": null,
+                        "discount": null,
+                        "discountedPrice": null
+                    }
+                ],
+                "outlet": {
+                    "id": 66668,
+                    "vendor": {
+                        "id": 13000,
+                        "name": "Rail Restro",
+                        "vendorType": "AGGREGATOR",
+                        "logoImageUrl": "",
+                        "active": false
+                    },
+                    "name": "Ot Road,kharagpur",
+                    "active": false,
+                    "onPremise": false,
+                    "relationshipManagerPhone": "1860-210-0000",
+                    "cancelCutOffTime": 90,
+                    "deliveryCharge": 0,
+                    "orderTiming": 0
+                },
+                "customer": {
+                    "id": 293837,
+                    "fullName": "raghav",
+                    "email": "raghav.goel@dotpe.in",
+                    "mobile": "8447005657",
+                },
+                "pnr": "6740884396",
+                "trainNo": "07439",
+                "trainName": "TATA   KCG  SPL",
+                "stationName": "VIJAYAWADA JN",
+                "stationCode": "BZA",
+                "bookingDate": "2020-03-04 11:12 UTC",
+                "deliveryDate": "2020-03-04 15:50 UTC",
+                "totalAmount": 662,
+                "gst": 31.5,
+                "amountPayable": 662,
+                "coach": "B1",
+                "berth": "34",
+                "status": "ORDER_CANCELLED",
+                "remarks": "NA",
+                "paymentType": "CASH_ON_DELIVERY",
+                "marginRate": 0.12,
+                "feedbacks": [],
+                "orderFrom": "DOTPE_AFFILIATE",
+                "otp": "5465"
+            }
+        ]
+    }
+}
+
+```
+
+#### Getting list of all orders
+
+This API can be used to fetch a list of all orders placed. The API supports filters for viewing data such as booking & cancellation.
+
+**&lt;irctc-base-url>/api/v1/order/list?page=1&size=50&startDate=&lt;BOOKING_DATE_FROM>&endDate=&lt;BOOKING_DATE_TO>&orderStartDate=&lt;DELIVERY_DATE_FROM>&orderEndDate=&lt;DELIVERY_DATE_TO>&orderStatus=&lt;ORDER_STATUS>**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/order/list?page=1&size=50&startDate=2021-05-01 00:00 IST&endDate=2021-05-01 23:59 IST&orderStartDate=2021-05-01 00:00 IST&orderEndDate=2021-05-01 23:59 IST&orderStatus=ORDER_PLACED
+
+- All the query parameters in the URL are optional
+- Authorization token is required in the header
+
+Following ORDER_STATUS values are supported:  
+ORDER_PLACED  
+ORDER_PENDING  
+ORDER_CONFIRMED  
+ORDER_CANCELLED  
+ORDER_PREPARING  
+ORDER_PREPARED  
+ORDER_OUT_FOR_DELIVERY  
+ORDER_DELIVERED  
+ORDER_UNDELIVERED  
+ORDER_PARTIALLY_DELIVERED
+
+#### Fetch order details
+
+**GET &lt;irctc-base-url>/api/v1/order/affiliate/orderStatus?orderId=&lt;irctc_order_id>**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/order/affiliate/orderStatus?orderId=44943440
+
+- The orderId query parameter is mandatory
+- IRCTC order ID must be sent as the value of orderId
+
+**Response**
+
+```
+{
+  "status": "success",
+  "message": "",
+  "result": {
+    "id": 2247673
+    "orderItems": [
+      {
+        "itemId": 90956,
+        "itemName": "Jain Delux Thali",
+        "description": "Paneer Butter Masala(100g),mix Veg Curry(100g),dal Fry (100g), Butter Chapati(3 Pcs),jeera Rice(200g),veg Raita(50g),sweet(1 Pc),papad,salad,pickle",
+        "sellingPrice": 204.75,
+        "basePrice": 50,
+        "taxRate": 2.5,
+        "isVegetarian": true,
+        "quantity": 1,
+        "option": null,
+        "toppings": null,
+        "crust": null,
+        "size": null,
+        "foodType": null,
+        "remarks": null,
+      },
+      {
+        "itemId": 90957,
+        "itemName": "Non Veg Delux Thali",
+        "description": "Chicken Butter Masala(100g),mix Veg Curry(100g),butter Chapati(3 Pcs),jeera Rice(200g),sweet (1 Pc),salad,pickle,raita(50g)",
+        "sellingPrice": 220.5,
+        "basePrice": 50,
+        "taxRate": 2.5,
+        "isVegetarian": false,
+        "quantity": 1,
+        "option": null,
+        "toppings": null,
+        "crust": null,
+        "size": null,
+        "foodType": null,
+        "remarks": null,
+      }
+    ],
+    "outlet": {
+      "id": 11,
+      "vendor": {
+        "id": 455384,
+        "name": "Spicy Wagon",
+        "relationshipManagerName": "Spicy wagon",
+        "relationshipManagerPhone": "7651827116",
+        "relationshipManagerEmail": "test@test.com",
+        "logoImageUrl" : "https://i.ibb.co/zfg6X0s/icon-192x192.png"
+      },
+      "name": "Nethi vindu",
+      "contactNumbers": "8045683186",
+      "relationshipManagerName": Vivek,
+      "relationshipManagerPhone": "8045683186",
+      "relationshipManagerEmail": "vivek@spicywagon.in"
+    },
+    "customer": {
+      "id": 1710977,
+      "fullName": "Vicky",
+      "email": "orders@spicywagon.in",
+      "mobile": "9959582678"
+    },
+    "pnr": "4819079400",
+    "trainNo": "12864",
+    "trainName": "YPR HOWRAH EXP",
+    "stationName": "VISAKHAPATNAM",
+    "stationCode": "VSKP",
+    "bookingDate": "2020-02-13 10:55 UTC",
+    "deliveryDate": "2020-02-10 10:03 UTC",
+    "totalAmount": 425,
+    "gst": 20.25,
+    "amountPayable": 325,
+    "coach": "A1",
+    "berth": "43",
+    "status": "ORDER_PARTIALLY_DELIVERED",
+    "remarks": "NA",
+    "paymentType": "CASH_ON_DELIVERY",
+    "orderFrom": "Spicy Wagon",
+    "createdAt": "2020-02-13 10:55 UTC",
+    "updatedAt": "2020-02-13 11:03 UTC",
+    "otp": "3257",
+    "affiliateOrderId": "158159",
+    "deliveryCharge": 18,
+    "eta": "2020-02-10 10:03 UTC",
+    "couponCode": F3F4AE,
+    "discount": 100,
+    "comment": null,
+    "alternateMobileNumber" : "9232939233"
+  }
+}
+```
+
+Possible status values:  
+ORDER_PLACED  
+ORDER_PENDING  
+ORDER_CONFIRMED  
+ORDER_CANCELLED  
+ORDER_PREPARING  
+ORDER_PREPARED  
+ORDER_OUT_FOR_DELIVERY  
+ORDER_DELIVERED  
+ORDER_UNDELIVERED  
+ORDER_PARTIALLY_DELIVERED
+
+#### Placing an order
+
+**POST &lt;irctc-base-url>/api/v1/order/affiliate**
+
+> Example: https://www.ecatering.irctc.co.in/api/v1/order/affiliate
+
+**Request :**
+
+```
+{
+*	"affiliateOrderId": 1331049,
+*	"customer": {
+		"fullName": "deepak",
+		"email": "test@gmail.com",
+		"mobile": "9898767675"
+	},
+* "outlet": {
+    "id": 29818,
+    "vendor": {
+      "id": 29660
+    }
+  },
+*	"bookingDate": "2019-11-22 07:01 IST",
+*	"deliveryDate": "2019-11-22 14:20 IST",
+*	"pnr": "2103048872",
+*	"trainNo": "22356",
+*	"trainName": "CDG  PPTA S FAST",
+*	"stationCode": "BSB",
+*	"stationName": "VARANASI JN",
+*	"coach": "B3",
+*	"berth": "54",
+*	"totalAmount": 136.5,
+	"discountAmount": "0",
+	"deliveryCharge": 0,
+*	"gst": 6.5,
+*	"amountPayable": 137,
+*	"paymentType": "PRE_PAID",
+  "couponCode": "A32D75",
+  "alternateMobileNumber" : "9232939233",
+  "orderPayment": {
+        "gatewayPaymentId" : "2323213",
+        "paymentAmount" : 137.00,
+        "bank" : "HDFC",
+        "fee" : 2.00,
+        "paymentStatus" : "captured",
+        "gatewayPaymentCapturedAt" : "2019-11-22 07:01 IST",
+         "paymentMethod": "CC"
+    },
+*	"orderItems": [{
+*		"itemId": 284505,
+*   "quantity": 1,
+		"customisations": null
+	}]
+}
+```
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "id": 1404707,
+        "orderItems": [
+            {
+                "itemId": 284505,
+                "itemName": "VEG MINI THALI",
+                "description": "CHAPATI (3 PCS), SEASONAL VEG (100G), DAL FRY/DAL TADKA (100 G), PLAIN RICE (200 G), SALAD & PICKLE",
+                "sellingPrice": 136.00,
+                "basePrice": 130.00,
+                "taxRate": 5.00,
+                "isVegetarian": true,
+                "quantity": 1,
+                "status": null,
+                "option": null,
+                "toppings": null,
+                "crust": null,
+                "size": null,
+                "foodType": null,
+                "remarks": null,
+            }
+        ],
+        "outlet": {
+            "id": 1619,
+            "vendor": {
+                "id": 13000,
+                "name": "Rail Restro",
+                "logoImageUrl" : "https://i.ibb.co/zfg6X0s/icon-192x192.png"
+            },
+            "name": "RUDRAM",
+            "contactNumbers": "8102888999",
+            "relationshipManagerName": null,
+            "relationshipManagerPhone": "8102888999",
+            "relationshipManagerEmail": "care@railrestro.com",
+        },
+        "customer": {
+            "id": 1404706,
+            "fullName": "Neeraj",
+            "email": "restrorail@gmail.com",
+            "mobile": "8340665284",
+            "gender": null
+        },
+        "pnr": "2103048872",
+        "trainNo": "22356",
+        "trainName": "CDG  PPTA S FAST",
+        "stationName": "VARANASI JN",
+        "stationCode": "BSB",
+        "bookingDate": "2019-11-22 01:31 UTC",
+        "deliveryDate": "2019-11-22 08:50 UTC",
+        "totalAmount": 136.5,
+        "gst": 6.5,
+        "amountPayable": 137,
+        "coach": "B3",
+        "berth": "54",
+        "status": "ORDER_CONFIRMED",
+        "remarks": "NA",
+        "paymentType": "CASH_ON_DELIVERY",
+        "orderFrom": "Rail Restro",
+        "orderPayment": null,
+        "createdAt": "2019-11-22 10:34 UTC",
+        "updatedAt": "2019-11-22 10:34 UTC",
+        "otp": "2270",
+        "affiliateOrderId": "1331049",
+        "eta": "2019-11-22 08:50 UTC",
+        "couponCode": null,
+        "discount": 0,
+        "comment": null,
+        ""alternateMobileNumber" : "9232939233"
+    }
+}
+```
+
+#### Update order status
+
+**POST &lt;irctc_base_url>/api/v1/order/&lt;irctc_order_id>/affiliate/status**
+
+**Request :**
+
+```
+{
+*	"status": "ORDER_CANCELLED",
+*	"affiliateOrderId": "12345"
+}
+```
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "status": "ORDER_CANCELLED",
+        "otp": null,
+        "remarks": "NA",
+        "orderItems": null,
+        "refundAmount": 678.00
+    }
+}
+```
+
+#### feedback status
+
+**GET &lt;irctc_base_url>/api/v1/feedback/status/&lt;irctc_order_id>**
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "feedbackId": 2157077,
+        "feedback": "food is not delivered",
+        "resolution": "refund initiated",
+        "isResolved": true,
+        "updatedAt": "2020-01-27 15:37",
+        "status": "ORDER_UNDELIVERED",
+        "refundAmount": 681.8,
+        "vendorName": "Olf Store",
+        "outletName": "Giri Pavitra Bhojnalaya",
+        "station": "MB/MORADABAD",
+        "payment": "PRE_PAID",
+        "resolved": true
+    }
+}
+```
+
+#### feedback create
+
+<Callout emoji="💡">
+  Read about feedback feature [here](/docs/order-flow#feedback).
+</Callout>
+
+**POST &lt;irctc_base_url>/api/v1/feedback**
+
+**Request :**
+
+```
+{
+    "order": {
+*        "id": 2158082
+    },
+*    "starRating": 2,
+    "feedbackText": "Partially delivered order",
+*    "options": [
+        "FOOD_QUALITY",
+        "PRICE_ISSUE"
+    ],
+*    "orderStatus": "ORDER_PARTIALLY_DELIVERED",
+*    "feedbackFrom": "ABC", // Partner Name
+    "feedbackSource": "B2C"
+}
+
+** orderStatus values **
+ORDER_UNDELIVERED
+ORDER_DELIVERED
+ORDER_PARTIALLY_DELIVERED
+```
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "feedbackId": 2158440,
+        "message": "Feedback registered successfully"
+    }
+}
+
+```
+
+#### Fetch ETA
+
+**GET &lt;irctc_base_url>/api/v1/order/&lt;irctc_order_id>/eta**
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "eta": "17-Feb-2020 18:00",
+        "platform": null
+    }
+}
+
+```
+
+### Affiliate API
+
+The following APIs needs to be created by B2C Partners for IRCTC server to hit in case of respective events.
+
+#### Trigger Refund API
+
+This API, implemented at affiliate partner's end, will be called by eCatering system whenever a refund is to be initiated. On successful refund initiation, refund details from affiliate's end are expected in the respoonse to this call.
+
+**POST https://&lt;affiliate_base_url>**
+
+**Request :**
+
+```
+{
+*	"orderId" : 38923,
+*	"refundType" : "FULL",
+*	"refundAmount" : 200.00,
+*	"orderStatus" : "ORDER_UNDELIVERED"
+}
+```
+
+**Possible refundType Values**
+
+```
+FULL
+PARTIAL
+```
+
+**Expected Response Format**
+
+```
+{
+    "status": "success",
+    "message": "Refund initiated successfully.",
+    "result": {
+        "amountRefunded": "103.00",
+        "refundId": "ref-as12"
+    }
+}
+```
+
+#### Order Status Change Callback
+
+This API, implemented at affiliate partner's end, will be called by eCatering system on all order status changes. Affiliate may update the order status at their end & send relevant communication to customer.  
+Refund amount is indicative & should not be used to actually trigger refunds (Trigger Refund API covers that).
+
+**POST https://&lt;b2c_base_url>**
+
+**Request Sample 1 :**
+
+```
+{
+*	"orderId" : 323244,
+*	"status" : "ORDER_UNDELIVERED",
+  "coupon" : {
+      "code": "IRC4AE",
+      "type": "FLAT",
+      "value": 100.00
+  },
+* "refundAmount": 338.00
+}
+
+```
+
+**Note:** Even for ORDER_UNDELIVERED status, coupon may not be generated in certain situations (natural calamity, law & order, etc.). In case no coupon is generated, the 'coupon' field would not be sent. Please handle both 'coupon' field not being sent as well as null value being sent accordingly.
+
+**Request Sample 2 :**
+
+```
+{
+*	"orderId" : 323244,
+*	"status" : "ORDER_PARTIALLY_DELIVERED",
+*	"orderItems": [{    // List of delivered items. Items present in order but not included here are undelivered.
+            "itemId": 296,
+            "itemName": "Plain Idly",
+            "basePrice": 50,
+            "taxRate": 2.5,
+            "description": "Idly",
+            "sellingPrice": 52.5,
+            "isVegetarian": true,
+            "quantity": 1,
+            "option": null,
+            "toppings": null,
+            "crust": null,
+            "size": null,
+            "foodType": null,
+            "remarks": null,
+            }],
+* "refundAmount": 588.00
+}
+
+```
+
+**Request Sample 3 :**
+
+```
+{
+*	"orderId" : 323244,
+*	"status" : "ORDER_DELIVERED"
+}
+
+```
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": ""
+}
+```
+
+#### Feedback creation on affiliate platform
+
+This API is WIP & not live yet.
+
+**POST https://&lt;b2c_base_url>**
+
+**Request :**
+
+```
+{
+*  "orderId" : 323923,
+* "feedbackId" : 849382,
+*   "starRating": 2,
+*   "feedbackText": "Partially delivered order",
+*   "options": [
+       "FOOD_QUALITY",
+       "PRICE_ISSUE"
+   ],
+*   "customerOrderStatus": "ORDER_PARTIALLY_DELIVERED
+}
+```
+
+** orderStatus values **
+
+```
+ORDER_UNDELIVERED
+ORDER_DELIVERED
+ORDER_PARTIALLY_DELIVERED
+```
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": ""
+}
+```
+
+#### Feedback Resolution API
+
+This API is WIP & not live yet.
+
+**POST https://&lt;b2c_base_url>**
+
+**Request :**
+
+```
+{
+*	"orderId": 32342,
+*	"feedbackId": 48934,
+*	"feedbackStatus": "Resolved"
+
+}
+
+```
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": ""
+}
+```

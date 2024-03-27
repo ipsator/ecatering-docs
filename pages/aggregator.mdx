@@ -1,0 +1,1066 @@
+import { Callout } from 'nextra/components'
+
+# Aggregator APIs
+
+#### From IRCTC to aggregator partner
+
+- IRCTC's server makes API calls to aggregator partner's server
+- Aggregator partners will provide an auth token to IRCTC for authorising API calls
+- Every request will have auth token in the request header like this:  
+  `Authorization: <auth_token>`
+
+#### From aggregator partner to IRCTC
+
+- Aggregator partner's server makes API calls to IRCTC server
+- IRCTC will also provide an auth token to aggregator partners for authorising API calls
+- Every request should have the auth token in the request header like this:  
+  `Authorization: <auth_token>`
+
+## IRCTC to Partner APIs
+
+### create order on aggregator server
+
+**POST https://&lt;aggregator_base_url>/order**
+
+<Callout emoji="💡">
+  The ```itemId``` field within ```orderItems``` has been **DEPRECATED** in favour of new 
+  ```aggregatorItemId``` field which enables use of alphanumeric IDs.  
+  Please migrate to the new key by **31 December, 2023**.  
+  Take a look at request samples with alphanumeric IDs for menu items [here](/aggregator#list-menu-for-a-selected-outlet).  
+  If you don't need alphanumberic IDs, simply send existing numeric IDs as String.  
+    
+  The ```outletId``` field within ```aggregatorDetails``` has been **DEPRECATED** in favour of new 
+  ```aggregatorOutletId``` field which enables use of alphanumeric IDs.  
+  Please migrate to the new key by **31 December, 2023**.  
+  If you don't need alphanumberic IDs, simply send existing numeric IDs as String.
+</Callout>
+
+Request body will be in this format:
+
+```
+{
+  "orderId": "123324231",
+  "customerDetails": {
+    "customerName": "Abhinav K",
+    "mobile": "9876543210",
+    "alternateMobile": "9703170789"
+  },
+  "aggregatorDetails": {
+    "aggregatorOutletId": "MD702"
+  },
+  "bookingDate": "12-07-2021 07:54 IST",    // MM-DD-YYYY HH:mm Z
+  "deliveryDate": "12-08-2021 06:07 IST",
+  "priceDetails": {
+    "deliveryCharge": 23,
+    "discountAmount": 32,
+    "totalAmount": 5739,
+    "totalMargin": 0.15,        // IRCTC margin percentage for the order
+    "gst": 52,
+    "amountPayable": 3243,
+    "couponCode": "PARTY10",   // Applied coupon code if any, or null
+    "irctcDiscountAmount": 0,    // Discount amount if IRCTC discount, 0 or null if none
+    "vendorDiscountAmount": 32  // Discount amount if vendor promotion, 0 or null if none
+  },
+  "status": "ORDER_PLACED",
+  "deliveryDetails": {
+    "trainNo": "12532",
+    "trainName": "Random Kranti Superfast",
+    "station": "Lucknow Jn",
+    "stationCode": "LKO",
+    "berth": "23",
+    "coach": "B1",
+    "ETA": "12-08-2021 06:10 IST",
+    "ETD": "12-08-2021 06:20 IST",
+    "passengerCount": 2
+  },
+  "orderItems": [
+    {
+      "aggregatorItemId": "2232ABC",
+      "itemId": 2232,    // DEPRECATED,use String type aggregatorItemId field instead
+      "itemName": "something something",
+      "basePrice": 300,
+      "description": "dhff d",
+      "quantity": 1,
+      "tax": 15,  // Total GST amount
+      "sellingPrice": 315,
+      "customisations": [   // Menu item customisation data if item was customised, else null
+                {
+                    "id": "1",
+                    "name": "Extra Add On",
+                    "variants": [
+                        {
+                            "id": "2",
+                            "name": "Butter Milk 1 Glass",
+                            "description": ""
+                        }
+                    ],
+                    "type": "ONE_LEVEL"
+                }
+            ],
+      "discount": 23,
+      "discountedPrice": 3332,
+      "isVegetarian": true,
+      "isNonVegetarian": true,
+      "foodType": "STARTERS",
+      "cuisine": "SOUTH_INDIAN"
+    }
+  ],
+  "paymentType": "CASH_ON_DELIVERY",
+  "comment": "comment"
+}
+```
+
+<Callout emoji="💡">
+  Supported enums for ```cuisine``` & ```foodType``` are listed
+  [here](/aggregator#supported-enums).
+</Callout>
+
+Response will have following fields:
+
+```
+{
+  "orderId": "123324231",
+  "aggregatorOrderId": "234231",
+  "status": "ORDER_CONFIRMED"
+}
+```
+
+## Partner to IRCTC APIs
+
+<Callout emoji="💡">
+  **Base URLs for IRCTC eCatering APIs**  
+  **Staging:** https://stage-ecatering.ipsator.com  
+  **Production:** https://www.ecatering.irctc.co.in
+</Callout>
+
+### List of outlets at a station
+
+This API can be used to create/update outlet information at a particular station.  
+In case of any changes to outlet information at a station, the updated list of all outlets with the latest data must be pushed.  
+If several outlets' data has to be updated, please make sure to batch all the changes in a single request instead of calling the API for each change. **Avoid making more than 5 requests in a minute against the same station & keep a delay of few seconds between each request.**  
+This API should be called only when data needs to be updated. Please refrain from setting up a periodic sync mechanism that calls the APIs regularly irrespective of data changes.
+Usage of the API in patterns deviating from above guidelines may lead to unexpected results. When this is unavoidable under rare scenarios, please reach out the tech team over email beforehand.
+
+**POST &lt;irctc_base_url>/api/v1/vendor/aggregator/outlets/&lt;STATION_CODE>**
+
+Expected request format:
+
+```
+{
+  "outlets": [
+    {
+*     "outletId": 530,
+*     "outletName": "Burger King",
+*     "order_timing": "60",       // Outlet cutoff time
+*     "minOrderAmount": "148",
+*     "openingTime": "08:00",    // HH:mm
+*     "closingTime": "22:00",
+*     "deliveryCharges": null,  // Refer Variable Delivery Charges section in doc below
+      "prepaid": false,
+      "promotions": null,    // Refer Promotional Discounts section in doc below
+      "address": "Station Road Dhanbad Shop No-26",
+      "city": "Dhanbad",
+      "state": "Jharkhand",
+      "companyName": "Burger King",
+*     "vendorPanNumber": "CCZPA3776S",
+*     "gstNo": "07AAACZ7586R1Z7",
+*     "fssaiNo": "10719026001084",
+*     "fssaiValidUpto": "2017-12-31",
+      "closingPeriod":[{    // Send empty list when there's no scheduled closure
+          "closedFrom":"2018-09-22 00:00",    // In IST timezone
+          "closedTo":"2018-09-22 23:59 "
+      }],
+      "weeklyClosed": [    // Send empty list when there's no scheduled closure
+       "MON",
+       "TUE"],
+       "logoImage": "https://www.irctc-aggregator.com/img/default-api.png",
+*     "email": "orders@aggregator.com",
+*     "mobile": "9882936865"
+    }
+  ]
+}
+```
+
+In case there is no outlet for the given station, just return empty outlets list.
+
+```
+{
+  "outlets": []
+}
+```
+
+Outlets newly pushed successfully are listed under the Pending Outlets section of the IRCTC admin panel & must be approved by us (on staging).
+
+<Callout emoji="💡">
+  **Allowed Characters for Image Names** - Only alphanumeric, ```_```, ```+```,
+  ```-``` & ``` ```(space) characters are allowed for image file names sent in
+  ```logoImage``` URLs. - You can verify the file name with [this
+  regex](https://regexr.com/6pvm1). - Supported file types are ```.webp```,
+  ```.png```, ```.jpg```, ```.jpeg```.
+</Callout>
+
+<Callout emoji="💡">
+  The older static `deliveryCost` field will soon be deprecated in favour of the new `deliveryCharges` field.
+</Callout>
+
+
+#### Promotional Discounts
+
+To make promotional discounts available to customers for a particular outlet, a new `promotions` field has to be sent within the outlet object of outlet list API request.  
+  
+The `promotions` field is a list of objects.
+
+<Callout emoji="💡">
+Each outlet can have up to 5 promotions. If more than 5 promotions are sent in request, the first 5 valid promotions will be considered & rest would get ignored.
+</Callout>
+  
+Each object in the list defines a specific promotion and includes attributes that detail the promotion’s conditions and benefits. A coupon code is generated by the system which is displayed to the customer in the order flow.  
+  
+**Sample promotion object**  
+```
+{
+    "requirement": {
+        "type": "AMOUNT",
+        "minimumOrderAmount": 100
+    },
+    "discount": {
+        "type": "PERCENTAGE",
+        "value": 10,
+        "maxDiscount": 100
+    }
+}
+```
+
+Documented below are the key attributes of these promotion objects along with JSON examples to illustrate their meaning:  
+
+- `requirement` (Object):
+    - `type` (String): Describes the type of requirement for the promotion. It can be one of the following:
+        - `AMOUNT`: The promotion is based on a minimum order amount.
+        - `PAYMENT_TYPE`: The promotion depends on the selected payment type.
+    - `minimumOrderAmount` (Number): Specifies the minimum order amount required to qualify for the promotion. The customer’s order subtotal (sum of basePrice of all items in cart) must meet or exceed this amount to be eligible for the discount.
+    - `paymentType` (String): Applicable only if the requirement type is “PAYMENT_TYPE”. It specifies the payment type required for the promotion, such as “PRE_PAID”.
+- `discount` (Object):
+    - `type` (String): Indicates the type of discount offered, which can be one of the following:
+        - `PERCENTAGE`: The discount is a percentage of the order amount.
+        - `FLAT`: The discount is a fixed, flat amount.
+    - `value` (Number): Specifies the value of the discount, which can be either a percentage or a flat amount.
+    - `maxDiscount` (Number): Indicates the maximum discount amount that can be obtained through the promotion. A value of -1 indicates no maximum limit.
+
+##### Examples
+Here are some examples of promotion objects and their meanings:  
+###### Party 10% Off (Coupon: PARTY10)
+**Requirement**:  
+Type: AMOUNT (Minimum order amount of ₹100)
+
+**Discount**:  
+Type: PERCENTAGE (10% off)
+Max Discount: ₹100
+
+**JSON Object**:  
+```
+{
+    "requirement": {
+        "type": "AMOUNT",
+        "minimumOrderAmount": 100
+    },
+    "discount": {
+        "type": "PERCENTAGE",
+        "value": 10,
+        "maxDiscount": 100
+    }
+}
+```
+
+###### Party 15% Off (Coupon: PARTY15)
+**Requirement**:  
+Type: AMOUNT (Minimum order amount of ₹700)
+
+**Discount**:  
+Type: PERCENTAGE (15% off)
+Max Discount: No limit (-1)
+
+**JSON Object**:  
+```
+{
+    "requirement": {
+        "type": "AMOUNT",
+        "minimumOrderAmount": 700
+    },
+    "discount": {
+        "type": "PERCENTAGE",
+        "value": 15,
+        "maxDiscount": -1
+    }
+}
+```
+
+###### Flat ₹25 Off (Coupon: FLAT25)
+**Requirement**:  
+Type: AMOUNT (Minimum order amount of ₹200)
+
+**Discount**:  
+Type: FLAT (₹25 off)
+Max Discount: No limit (-1)
+
+**JSON Object**:  
+```
+{
+    "requirement": {
+        "type": "AMOUNT",
+        "minimumOrderAmount": 200
+    },
+    "discount": {
+        "type": "FLAT",
+        "value": 25,
+        "maxDiscount": -1
+    }
+}
+```
+
+###### 5% Off for Prepaid Orders (Coupon: PREPAID5)
+**Requirement**:  
+Type: PAYMENT_TYPE (Payment type: PRE_PAID, Minimum order amount of ₹100)
+
+**Discount**:
+Type: PERCENTAGE (5% off the order)
+Max Discount: No limit (-1)
+
+**JSON Object**:
+```
+{
+    "requirement": {
+        "type": "PAYMENT_TYPE",
+        "paymentType": "PRE_PAID",
+        "minimumOrderAmount": 100
+    },
+    "discount": {
+        "type": "PERCENTAGE",
+        "value": 5,
+        "maxDiscount": -1
+    }
+}
+```
+
+###### ₹15 Off for Prepaid Orders (Coupon: PREPAID15)
+**Requirement**:  
+Type: PAYMENT_TYPE (Payment type: PRE_PAID, Minimum order amount of ₹100)
+
+**Discount**:  
+Type: FLAT (₹15 off)
+Max Discount: No limit (-1)
+
+**JSON Object**:  
+```
+{
+    "requirement": {
+        "type": "PAYMENT_TYPE",
+        "paymentType": "PRE_PAID",
+        "minimumOrderAmount": 100
+    },
+    "discount": {
+        "type": "FLAT",
+        "value": 15,
+        "maxDiscount": -1
+    }
+}
+```
+
+Expected JSON with 2 promotions:  
+```
+"promotions": [
+    {
+        "requirement": {
+            "type": "AMOUNT",
+            "minimumOrderAmount": 100
+        },
+        "discount": {
+            "type": "PERCENTAGE",
+            "value": 10,
+            "maxDiscount": 100
+        }
+    },
+    {
+        "requirement": {
+            "type": "PAYMENT_TYPE",
+            "paymentType": "PRE_PAID",
+            "minimumOrderAmount": 100
+        },
+        "discount": {
+            "type": "PERCENTAGE",
+            "value": 5,
+            "maxDiscount": -1
+        }
+    }
+]
+```
+This `promotions` field is expected in the outlet object documented in the previous section.
+
+##### Regulations/Allowed Values
+
+<Callout emoji="💡">
+Outlet data update API requests with promotions not meeting these regulations may fail with an error.
+</Callout>
+
+To strike a good balance between customer experience & fair business, the following conditions are enforced on promotional coupons:
+
+###### For percentage discount coupons
+- The discount percentage cannot exceed 15%.
+- The maximum discount limit (if any) cannot be lower than the absolute value of the discount a customer can get for the corresponding minimum order amount.  
+e.g. For a percentage discount coupon offering 10% off on a minimum order amount of ₹200, the maximum discount limit cannot be lower than ₹20.  
+This would eliminate misleading offers such as '50% off up to ₹20 on orders above ₹200'.
+
+###### For flat discount coupons
+- The minimum order amount cannot be zero & discount value cannot exceed 15% of the minimum order amount.  
+Example 1: For a flat discount coupon with a minimum order amount of ₹200, the maximum allowed discount value will be ₹30.  
+Example 2: For a flat discount coupon offering ₹15 off, the lowest allowed minimum order amount will be ₹100.
+
+#### Variable Delivery Charges
+
+This feature enables configuration of multiple slabs for delivery charges based on total base order value (subtotal).
+
+To enable variable delivery fees for a particular outlet, 
+a new `deliveryCharges` field has to be sent within the outlet object of outlet list API request.
+
+The `deliveryCharges` field is a list of objects.
+
+Each outlet can have up to 3 delivery fee slabs. If more than 3 slabs are sent in request, the request would fail.
+
+##### JSON Structure
+The JSON list must be included in the outlet update API request under a new key `deliveryCharges` 
+to enable the variable delivery fees feature.
+The variable delivery fees are defined in a JSON list, where each object in the list represents a delivery fee slab.
+The list should preferably be ordered from the lowest to the highest order base price.
+
+Each object in the list has two fields:
+- `amountMoreThan`: The minimum order base price for which the associated delivery fee should be applied.
+- `deliveryFee`: The delivery fee to be applied for orders with a base price greater than or equal to the specified `amountMoreThan`.
+
+##### JSON Examples
+```
+[
+    {
+        "amountMoreThan": 0,
+        "deliveryFee": 30
+    },
+    {
+        "amountMoreThan": 100,
+        "deliveryFee": 20
+    },
+    {
+        "amountMoreThan": 300,
+        "deliveryFee": 0
+    }
+]
+```
+
+In this example, the variable delivery fees are defined as follows:
+- For orders with a base price greater than ₹0 but less than ₹100, a delivery fee of ₹30 will be applied.
+- For orders with a base price greater than or equal to ₹100, a reduced delivery fee of ₹20 will be applied.
+- For orders with a base price greater than or equal to ₹300, no delivery fee will be applied.
+
+##### Implementation
+- The JSON list must be included in the outlet update API request under a new key `deliveryCharges` to enable the variable delivery fees feature.
+- The `amountMoreThan` values must be unique for each fee slab.
+- If an order's base price falls within a specific slab, the corresponding delivery fee for that slab will be applied.
+- If no delivery fee is to be applied, the `deliveryCharges` field should be sent as `null`.
+- If you want to apply a flat delivery fee i.e. a single fee slab, the `deliveryCharges` list should have a single item with `amountMoreThan` value as 0 & `deliveryFee` value as the required fee amount.
+
+<Callout emoji="💡">
+The older static `deliveryCost` field will soon be deprecated in favour of this new `deliveryCharges` field.  
+If you are a new partner integrating the APIs newly, please follow this section of the doc to implement delivery charges.
+</Callout>
+
+### list menu for a selected outlet:
+
+This API can be used to create/update menu information for a particular outlet.  
+In case of any changes to the menu information, the updated list of all items with the latest data must be pushed.  
+If several items' data has to be updated, please make sure to batch all the changes in a single request instead of calling the API for each change. **Avoid making more than 5 requests in a minute against the same outlet & keep a delay of few seconds between each request.**
+This API should be called only when data needs to be updated. Please refrain from setting up a periodic sync mechanism that calls the APIs regularly irrespective of data changes.
+Usage of the API in patterns deviating from above guidelines may lead to unexpected results. When this is unavoidable under rare scenarios, please reach out the tech team over email beforehand.
+  
+**POST &lt;irctc_base_url>/api/v1/vendor/aggregator/station/&lt;STATION_CODE>/outlet/&lt;OUTLET_ID>**
+
+<Callout emoji="⚠️">
+   The ```tax``` field within items of ```menuItems``` list has been **DEPRECATED** in favour of new 
+  ```taxPercentage``` field which is percentage value of the GST slab instead of tax amount.  
+  Send 0.05 for 5%, 0.12 for 12% & so on.  
+  Please migrate to the new key soon to avoid any discrepancies.  
+    
+  Please ensure that ```basePrice```, ```taxPercentage``` & ```sellingPrice``` fields for
+  each item is accurate else the item will not get listed to users. For now, ```taxPercentage```
+  must be "0.05" as only 5% GST rate is supported on eCatering as of now.
+</Callout>
+
+Expected request format:
+
+```
+{
+* "menuItems": [
+    {
+*     "itemId": "1223ABC",    // This field now also supports alphanumeric IDs when sent as String type
+*     "itemName": "Veg Biryani with Raita",
+*     "basePrice": 140.60,
+*     "description": "Veg Biryani with Raita which serves 1",
+*     "openingTime": "12:00",    // HH:mm
+*     "closingTime": "22:00",
+*     "taxPercentage": 0.05,    // Tax percentage; Send 0.05 for 5%, 0.12 for 12% & so on
+*     "sellingPrice": 166.05,    // sellingPrice = basePrice + (taxPercentage * basePrice)
+*     "isVegeterian": true,
+      "image": "https://someurl.com/something.png",
+*     "cuisine": "SOUTH_INDIAN",
+*     "foodType": "STARTERS",
+      "bulkOnly": false,    // Items with value true are not shown to customers & used by ops teams for bulk orders; Default: false
+      "customisations": null,
+      "customisationDefaultBasePrice": 0  // Cost displayed to customer on menu when item is customisable
+    }
+  ]
+}
+```
+
+<Callout emoji="💡">
+  **Allowed Characters for Image Names** - Only alphanumeric, ```_```, ```+```,
+  ```-``` & ``` ```(space) characters are allowed for image file names sent in
+  ```image``` URLs. - You can verify the file name with [this
+  regex](https://regexr.com/6pvm1). - Supported file types are ```.webp```,
+  ```.png```, ```.jpg```, ```.jpeg```.
+</Callout>
+
+<Callout emoji="💡">
+  Supported enums for ```cuisine``` & ```foodType``` are listed
+  [here](/aggregator#supported-enums).
+</Callout>
+
+#### Menu item customisation
+
+`customisations` field in the above request can be used to support customisation of menu items. An example use case would be allowing users to choose from different Pizza bases & sizes.  
+There are 2 supported `type` values: `ONE_LEVEL` and `TWO_LEVEL`.  
+The hierarchy is customisation -> variant -> option for `TWO_LEVEL` and customisation -> variant for `ONE_LEVEL`.
+When `customisations` is non-null, `customisationDefaultBasePrice` within the menu item object is used to display the item's base price to user on the menu page. In most cases this is expected to be the total base price of the default customisation.  
+This structure should allow for numerous possible customisation setups including combo choices, addons, etc.
+Some customisation configurations may not be supported on forward order assets yet & would be planned for future. Please check with us regarding the current status.
+
+Please refer the below sample for details. Only values with 'optional' in comment are optional & can be null.
+
+```
+[
+    {
+        "id": "25ABC",    // Can be same in different menu items, but unique within same menu item
+        "name": "Crust",
+        "description": null,    // optional
+        "min": 1,   // Used to decide minimum how many selections should be made by user
+        "max": 1,   // Used to decide maximum how many selections can be made by user
+        "type": "TWO_LEVEL",
+        "defaultVariant": "1",
+        "optionsName": "Base Size", // Used in TWO_LEVEL
+        "optionsDescription": null, // Used in TWO_LEVEL, optional
+        "variants": [
+            {
+                "id": "1ABC",
+                "defaultOption": "7C", // Used in TWO_LEVEL
+                "name": "New Hand Tossed",
+                "description": null,    // optional
+                "extraBasePrice": 0,    // // Used in ONE_LEVEL; Extra cost for this variant added on top of parent item's base price
+                "options": [
+                    {
+                        "id": "6A",    // Must be unique within this level
+                        "name": "Regular",
+                        "description": "Serves 1",  // optional
+                        "extraBasePrice": 259.00
+                    },
+                    {
+                        "id": "8",
+                        "name": "Large",
+                        "description": "Serves 4",
+                        "extraBasePrice": 689.00
+                    },
+                    {
+                        "id": "7C",
+                        "name": "Medium",
+                        "description": "Serves 2",
+                        "extraBasePrice": 459.00
+                    }
+                ]
+            },
+            {
+                "id": "115",
+                "defaultOption": "7",
+                "name": "Cheese Burst",
+                "description": null,
+                "extraBasePrice": 0,
+                "options": [
+                    {
+                        "id": "7",
+                        "name": "Medium",
+                        "description": null,
+                        "extraBasePrice": 558.00
+                    },
+                    {
+                        "id": "6",
+                        "name": "Regular",
+                        "description": "Serves 1",
+                        "extraBasePrice": 334.00
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "26",
+        "name": "Combo Soft Drink Choice",
+        "description": null,
+        "min": 0,   // 0 min value would make this customisation an optional addon
+        "max": 1,
+        "type": "ONE_LEVEL",
+        "defaultVariant": null,   // null would skip any default selection
+        "optionsName": null,
+        "optionsDescription": null,
+        "variants": [
+            {
+                "id": "1",
+                "defaultOption": null,    // Only used in TWO_LEVEL
+                "name": "Mojito",
+                "description": null,
+                "extraBasePrice": 55.8,
+                "options": null
+            },
+            {
+                "id": "115",
+                "defaultOption": null,    // Only used in TWO_LEVEL
+                "name": "Sweet Lime",
+                "description": null,
+                "extraBasePrice": 33.4,
+                "options": null
+            }
+        ]
+    }
+]
+```
+
+### create order on irctc server
+Please note: This has to be called before the order confirmation on aggregator's assets
+
+**POST `<irctc_base_url>/api/v2/order/vendor`**
+
+Sample request body:
+```
+{
+    "vendorOrderId": "12345", // optional in this API
+    "alternateMobileNumber": "",
+    "comment": "",
+    "customer": {
+        "fullName": "test",
+        "email": "xyz@zyz.com",
+        "mobile": "9999999999"
+    },
+    "outlet": {
+        "id": 309,
+        "name": "Test Food & Caterers",
+        "address": "Test Warangal, Warangal, Warangal, Telangana - 506002",
+        "city": "noida",
+        "state": "up",
+        "pinCode": "201301",
+        "contactNumbers": "9292929292,9221212121",
+        "relationshipManagerName": "Test",
+        "relationshipManagerPhone": "999999999",
+        "relationshipManagerEmail": "test@gmail.com",
+        "fssaiNumber": "23628989898989",
+        "fssaiCutOffDate": "2028-10-11 00:00 IST",
+        "gstNumber": "19AFBFS4143L1ZP"
+    },
+    "bookingDate": "2024-03-13 17:45 IST",
+    "deliveryDate": "2024-03-13 19:43 IST",
+    "pnr": "8989898989",
+    "trainNo": "12622",
+    "trainName": "TAMILNADU EXP",
+    "stationCode": "WL",
+    "stationName": "Warangal",
+    "coach": "B4",
+    "berth": "71",
+    "totalAmount": 269.99,
+    "gst": 12.857,
+    "deliveryCharge": 30,
+    "discountAmount": 0,
+    "amountPayable": 299.99,
+    "paymentType": "CASH_ON_DELIVERY",
+    "orderItems": [
+        {
+            "itemId": 31386,
+            "itemName": "Phulka Sabji Combo",
+            "description": "3 Pc Phulka With Sabzi",
+            "basePrice": 128.57,
+            "sellingPrice": 134.98,
+            "taxRate": 6.42,
+            "isVegetarian": true,
+            "quantity": 2,
+            "option": ""
+        }
+    ]
+}
+```
+<Callout emoji="⚠️">
+  Please ensure that ```basePrice``` & ```taxRate``` fields for each item in
+  ```orderItems``` is accurate or the order may get rejected. ```taxRate``` must
+  be 5% of ```basePrice``` as only 5% GST rate is supported on eCatering as of
+  now.
+</Callout>
+
+Sample Response:
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "orderId": 49403274,  // IRCTC order ID; show this on your payment page
+        "status": "ORDER_PENDING"
+    }
+}
+```
+
+### Confirm order on IRCTC server once order is successful on aggregator's asset
+
+**POST `<irctc_base_url>/api/v2/order/<irctc_order_id>/vendor/status`**
+
+Sample request body:
+```
+{
+    "status":"ORDER_CONFIRMED",
+    "vendorOrderId":"test123",
+    "paymentType":"PRE_PAID" //CASH_ON_DELIVERY
+}
+```
+
+### create order on irctc server (to be deprecated)
+
+**POST &lt;irctc_base_url>/api/v1/order/vendor**
+
+Sample request body:
+
+```
+{
+    "vendorOrderId": "12345",
+    "alternateMobileNumber":"9098987876", // optional
+    "comment":"comment," // optional, captures any special instruction added by customer
+    "customer": {
+        "fullName": "Abhinav K",
+        "email": "abhinav@ipsator.com",
+        "mobile": "9876543210"
+    },
+    "outlet": {
+        "id": 4,
+        "name": "Burger King",
+        "address": "Some place",
+        "city": "Bangalore",
+        "state": "State",
+        "pinCode": "560068",
+        "contactNumbers": "9160637092,9898989898",
+        "relationshipManagerName": "Aakash",
+        "relationshipManagerPhone": "9062976862",
+        "relationshipManagerEmail": "abcd@gmail.com",
+        "fssaiNumber": "10719026001084",
+        "fssaiCutOffDate": "2018-21-08 00:00 IST",
+        "gstNumber": "07AAACZ7586R1Z7"
+    },
+    "bookingDate": "2021-11-27 18:56 IST",  // When the order was placed (at your end)
+    "deliveryDate": "2021-12-28 19:51 IST", // Order's delivery time
+    "pnr": "6311020444",
+    "trainNo": "17015",
+    "trainName": "Visakha Express",
+    "stationCode": "RJY",
+    "stationName": "Rajahmundry",
+    "coach": "B2",
+    "berth": "28",
+    "totalAmount": 225.79, // Sum of [(basePrice + taxRate) * quantity] for each item in orderItems list
+    "gst": 10.79, // Sum of all taxRate * quantity for each item in orderItems list
+    "deliveryCharge": 17.7, // can be 0
+    "discountAmount": 0, // can be 0
+    "amountPayable": 243, // amountPayable = totalAmount + deliveryCharge - discountAmount
+    "paymentType": "CASH_ON_DELIVERY" // Can be CASH_ON_DELIVERY or PRE_PAID
+    "orderItems": [
+        {
+            "itemId": "199A",  // This field now also supports alphanumeric IDs when sent as String type 
+            "itemName": "Idli",
+            "description": null, // optional
+            "basePrice": 47,    // Ensure value is correct
+            "discount": 7,  // Discount on basePrice, if any or 0
+            "discountedPrice": 40,  // optional; discountedPrice = basePrice - discount; null or skip if there's no discount
+            "taxRate": 2,    // Tax amount (not rate percentage); ensure value is correct; calculated against discountedPrice if discount is non-zero
+            "sellingPrice": 42,    // sellingPrice = basePrice (or discountedPrice if discount is non-zero) + taxRate
+            "isVegetarian": true,
+            "quantity": 2
+        },
+        {
+            "itemId": "200B",  // This field now also supports alphanumeric IDs when sent as String type
+            "itemName": "Vada",
+            "description": "Vada (2nos), Sambar (200g) & Chutney (100g)",
+            "basePrice": 54,
+            "discount": 0,
+            "discountedPrice": null,
+            "sellingPrice": 56.7,
+            "taxRate": 2.7,
+            "isVegetarian": true,
+            "quantity": 1
+        }
+    ]
+}
+```
+
+<Callout emoji="⚠️">
+  Please ensure that ```basePrice``` & ```taxRate``` fields for each item in
+  ```orderItems``` is accurate or the order may get rejected. ```taxRate``` must
+  be 5% of ```basePrice``` as only 5% GST rate is supported on eCatering as of
+  now.
+</Callout>
+Response will have irctc orderId.
+
+### Fetch order ETA
+
+**GET &lt;irctc_base_url>/api/v1/order/&lt;irctc_order_id>/eta**
+
+**Response :**
+
+```
+{
+    "status": "success",
+    "message": "",
+    "result": {
+        "eta": "17-Feb-2020 18:00",
+        "platform": null
+    }
+}
+
+```
+
+### Update order status at IRCTC end
+
+**POST &lt;irctc_base_url>/api/v1/order/&lt;irctc_order_id>/status**
+
+Request body will be like this:
+
+```
+{
+*	  "status": "ORDER_CANCELLED",
+    "otp": "1234",
+    "remarks": "LAW_N_ORDER",
+    "deliveryPersonContactNo": "9999999999",
+    "deliveryPersonName": "Name"
+    "orderItems": [
+        {
+          "itemId": 122940,
+          "quantity": 1
+        }
+      ]
+}
+```
+
+The value of status can only be one of following:
+
+- ORDER_PREPARING (can be marked after the cutoff time and before the ETA)
+- ORDER_PREPARED (can be marked after the cutoff time and before the ETA)
+- ORDER_OUT_FOR_DELIVERY (can be marked after the cutoff time and before the ETA)
+- ORDER_DELIVERED (can be marked after ETA\*)
+- ORDER_PARTIALLY_DELIVERED (can be marked after ETA\*)
+- ORDER_UNDELIVERED (can be marked after ETA\*)
+- ORDER_CANCELLED (forward orders can be marked after push time & before ETA only if order is beyond serviceable hours, reverse orders can be marked till ETA - 15 mins)
+
+\*Order status cannot be changed if a complaint for the order is already submitted by the customer or if the system has auto-marked the order as delivered.
+
+<Callout emoji="⚠️">
+  **Important Note** - When setting the 'status' to 'ORDER_UNDELIVERED' or
+  'ORDER_CANCELLED', the 'remarks' field is mandatory. - When setting the status
+  to 'ORDER_PARTIALLY_DELIVERED', the 'otp' & 'orderItems' (list of delivered
+  items) fields are mandatory. - 'deliveryPersonContactNo' &
+  'deliveryPersonName' fields are optional and may be sent only when setting the
+  'status' to 'ORDER_OUT_FOR_DELIVERY'.
+</Callout>
+
+The value of remarks when status is ORDER_UNDELIVERED can only be one of following:
+
+- CUSTOMER_NOT_AVAILABLE
+- OTP_MISMATCH
+- VENDOR_INABILITY
+- VENDOR_CLOSED
+- CUSTOMER_DENIED
+
+The value of remarks when status is ORDER_CANCELLED can only be one of following:
+
+- BEYOND_SERVICE_HOUR
+- TRAIN_DELAYED (for reverse orders only)
+- LAW_N_ORDER (for reverse orders only)
+- NATURAL_CALAMITY (for reverse orders only)
+- PASSENGER_JOURNEY_CANCELLED (for reverse orders only)
+
+### feedback list API
+
+**GET &lt;irctc_base_url>/api/v1/feedback**
+
+request parameters(optional) will be :
+
+```
+| "page" | "1" |
+| "size" | "10" |
+| "complainFromDate" | "2019-09-18 06:07 IST" |
+| "complainToDate" | "2019-09-19 06:07 IST" |
+| "paymentType" | "PRE_PAID" |
+| "stationCode" | "PUNE" |
+| "orderId" | "30396956" |
+| "complaintId" | "30426710" |
+| "complaintType" | "FOOD_QUALITY" |
+
+```
+
+the value of paymentType can only be one of following:
+
+- PRE_PAID
+- CASH_ON_DELIVERY
+
+the value of complaintType can only be one of following:
+
+- FOOD_QUALITY
+- FOOD_QUANTITY
+- STAFF_BEHAVIOUR
+- PRICE_ISSUE
+- OTHER
+
+response will be :
+
+```
+{
+  "status": "success",
+  "message": "",
+  "result": {
+    "total": 5,
+    "feedbacks": [
+      {
+        "id": 256211,
+        "order": null,
+        "isComplain": true,
+        "starRating": 2,
+        "feedbackText": "",
+        "resolution": null,
+        "isResolved": false,
+        "updatedAt": null,
+        "updatedBy": null,
+        "createdBy": null,
+        "createdAt": "2019-01-15 07:04 UTC",
+        "options": null,
+        "feedbackActions": null,
+        "feedbackActionEditable": false,
+        "orderStatus": null,
+        "feedbackFrom": null,
+        "feedbackSource": null,
+        "vendorName": "Fasoos",
+        "outletName": "Faasos - Bhandup",
+        "payment_type": "PRE_PAID",
+        "amountPayable": 1510,
+        "orderId": 256179,
+        "isCommented": false,
+        "complain": true,
+        "resolved": false
+      },
+      {
+        "id": 254756,
+        "order": null,
+        "isComplain": true,
+        "starRating": 1,
+        "feedbackText": "Sample message",
+        "resolution": null,
+        "isResolved": false,
+        "updatedAt": null,
+        "updatedBy": null,
+        "createdBy": null,
+        "createdAt": "2019-01-10 11:07 UTC",
+        "options": null,
+        "feedbackActions": null,
+        "feedbackActionEditable": false,
+        "orderStatus": null,
+        "feedbackFrom": null,
+        "feedbackSource": null,
+        "vendorName": "Fasoos",
+        "outletName": "Powai",
+        "payment_type": "CASH_ON_DELIVERY",
+        "amountPayable": 389,
+        "orderId": 246536,
+        "isCommented": false,
+        "complain": true,
+        "resolved": false
+      }
+    ]
+  }
+}
+```
+
+## Supported Enums
+
+### cuisine
+
+Used in [List menu for a selected outlet](/aggregator#list-menu-for-a-selected-outlet) & [Create order on aggregator server](/aggregator#create-order-on-aggregator-server) APIs.
+
+- SOUTH_INDIAN
+- PUNJABI
+- NORTH_INDIAN
+- MUGHALAI
+- BENGALI
+- GOAN
+- TAMIL
+- ANDHRA
+- KERALA
+- INDIAN_CHINESE
+- CHINESE
+- AWADHI
+- MALAYSIAN
+- MAHARASHTRIAN
+- TIBETAN
+- SRI_LANKAN
+- SIKKIMESE
+- TASTE_OF_BIHAR
+- ASSAMESE
+- BAKERY_CONFECTIONERY
+- CONTINENTAL
+- ITALIAN
+- MEXICAN
+- LEBANESE
+- MONGOLIAN
+- MALABARI
+- HYDERABADI
+- ODIYA
+- MARATHI
+- GUJRATI
+- RAJASTHANI
+- AMERICAN
+
+### foodType
+
+Used in [List menu for a selected outlet](/aggregator#list-menu-for-a-selected-outlet) & [Create order on aggregator server](/aggregator#create-order-on-aggregator-server) APIs.
+
+- SNACKS
+- BREAKFAST
+- STARTERS
+- MAINS
+- MAINS_GRAVY
+- BREADS
+- THALI
+- COMBO
+- DESSERTS
+- SOUP
+- BEVERAGE
+- NAVRATRI_SPECIAL
+- DIET
+- BAKERY_CONFECTIONERY
+- HEALTHY_DIET
+- SWEETS
+- DIWALI_SPECIAL
+- BIRYANI
+- BULK
+- SPECIALITY_ITEM
+- CHAATS
+- NAMKEENS
+- SALADS
+- MOUTH_FRESHENER_DIGESTIVE
+- PIZZA
+- BURGER
+- HOLI_SPECIAL
+- PASTAS
+- TACOS
+- QUESADILLAS
+- SIDES
+- JAIN_FOOD
